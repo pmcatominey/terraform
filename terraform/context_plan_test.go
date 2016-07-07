@@ -2286,3 +2286,39 @@ func TestContext2Plan_ignoreChanges(t *testing.T) {
 		t.Fatalf("bad:\n%s\n\nexpected\n\n%s", actual, expected)
 	}
 }
+
+func TestContext2Plan_computedValueInMap(t *testing.T) {
+	m := testModule(t, "plan-computed-value-in-map")
+	p := testProvider("aws")
+	p.DiffFn = func(info *InstanceInfo, state *InstanceState, c *ResourceConfig) (*InstanceDiff, error) {
+		switch info.Type {
+		case "aws_computed_source":
+			return &InstanceDiff{
+				Attributes: map[string]*ResourceAttrDiff{
+					"computed_read_only": &ResourceAttrDiff{
+						NewComputed: true,
+					},
+				},
+			}, nil
+		}
+
+		return testDiffFn(info, state, c)
+	}
+	ctx := testContext2(t, &ContextOpts{
+		Module: m,
+		Providers: map[string]ResourceProviderFactory{
+			"aws": testProviderFuncFixed(p),
+		},
+	})
+
+	plan, err := ctx.Plan()
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	actual := strings.TrimSpace(plan.String())
+	expected := strings.TrimSpace(testTerraformPlanComputedValueInMap)
+	if actual != expected {
+		t.Fatalf("bad:\n%s\n\nexpected\n\n%s", actual, expected)
+	}
+}
